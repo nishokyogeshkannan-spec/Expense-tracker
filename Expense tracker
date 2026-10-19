@@ -1,0 +1,274 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Expense Tracker</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4ff;
+      margin: 0;
+      padding: 20px;
+      color: #222;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: 20px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 20px;
+      box-shadow: 0 5px 20px #ccd3e5;
+    }
+
+    h1 {
+      text-align: center;
+      color: #5145cd;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .card {
+      padding: 15px 8px;
+      border-radius: 12px;
+      text-align: center;
+      background: #f0f4ff;
+      overflow-wrap: anywhere;
+    }
+
+    .card h3 {
+      font-size: 13px;
+    }
+
+    .amount {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .income { color: #159447; }
+    .expense { color: #e04444; }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin: 7px 0;
+      border: 1px solid #ddd;
+      border-radius: 9px;
+      font-size: 15px;
+    }
+
+    button {
+      background: #5145cd;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #392da9;
+    }
+
+    .transaction {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .transaction button {
+      width: auto;
+      padding: 7px 10px;
+      background: #e04444;
+    }
+
+    .empty {
+      color: #777;
+      text-align: center;
+      padding: 15px;
+    }
+
+    @media (max-width: 420px) {
+      body { padding: 8px; }
+      .container { padding: 14px; }
+      .cards { gap: 5px; }
+      .amount { font-size: 14px; }
+      .card { padding: 10px 4px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>💰 Expense Tracker</h1>
+    <p style="text-align:center">Track your money. Reach your goals!</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Balance</h3>
+        <div class="amount" id="balance">AED 0.00</div>
+      </div>
+      <div class="card">
+        <h3>Income</h3>
+        <div class="amount income" id="income">AED 0.00</div>
+      </div>
+      <div class="card">
+        <h3>Expenses</h3>
+        <div class="amount expense" id="expenses">AED 0.00</div>
+      </div>
+    </div>
+
+    <h2>Add Transaction</h2>
+    <form id="form">
+      <input id="description" placeholder="What did you spend on?" required>
+      <input id="amount" type="number" min="0.01" step="0.01"
+        placeholder="Amount in AED" required>
+      <select id="type">
+        <option value="expense">Expense</option>
+        <option value="income">Income</option>
+      </select>
+      <button type="submit">+ Add Transaction</button>
+    </form>
+
+    <h2>Transaction History</h2>
+    <div id="history">
+      <p class="empty">No transactions yet. Add your first one!</p>
+    </div>
+    <button id="clear" type="button">Clear All Transactions</button>
+  </main>
+
+  <script>
+    const form = document.getElementById("form");
+    const history = document.getElementById("history");
+    let transactions = [];
+
+    try {
+      transactions = JSON.parse(
+        localStorage.getItem("myExpenses") || "[]"
+      );
+      if (!Array.isArray(transactions)) transactions = [];
+    } catch {
+      transactions = [];
+    }
+
+    const money = amount =>
+      "AED " + amount.toLocaleString("en-AE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+    function save() {
+      try {
+        localStorage.setItem("myExpenses", JSON.stringify(transactions));
+      } catch {
+        alert("Storage is unavailable. Your changes may not be saved.");
+      }
+    }
+
+    function render() {
+      const income = transactions
+        .filter(t => t.type === "income")
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const expenses = transactions
+        .filter(t => t.type === "expense")
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      document.getElementById("balance").textContent =
+        money(income - expenses);
+      document.getElementById("income").textContent = money(income);
+      document.getElementById("expenses").textContent = money(expenses);
+
+      history.replaceChildren();
+
+      if (transactions.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = "No transactions yet. Add your first one!";
+        history.appendChild(empty);
+        return;
+      }
+
+      transactions.slice().reverse().forEach(t => {
+        const row = document.createElement("div");
+        row.className = "transaction";
+
+        const info = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = t.description;
+
+        const date = document.createElement("small");
+        date.textContent = " " + t.date;
+
+        info.append(name, document.createElement("br"), date);
+
+        const value = document.createElement("span");
+        value.className = t.type === "income" ? "income" : "expense";
+        value.textContent =
+          (t.type === "income" ? "+" : "-") + money(t.amount);
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "Delete";
+        del.setAttribute("aria-label", "Delete " + t.description);
+        del.addEventListener("click", () => {
+          transactions = transactions.filter(x => x.id !== t.id);
+          save();
+          render();
+        });
+
+        row.append(info, value, del);
+        history.appendChild(row);
+      });
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const description =
+        document.getElementById("description").value.trim();
+      const amount = Number(document.getElementById("amount").value);
+      const type = document.getElementById("type").value;
+
+      if (!description || !Number.isFinite(amount) || amount <= 0) {
+        alert("Please enter a description and a positive amount.");
+        return;
+      }
+
+      transactions.push({
+        id: Date.now() + Math.random(),
+        description,
+        amount,
+        type,
+        date: new Date().toLocaleDateString()
+      });
+
+      save();
+      render();
+      form.reset();
+    });
+
+    document.getElementById("clear").addEventListener("click", () => {
+      if (confirm("Delete all transactions?")) {
+        transactions = [];
+        save();
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
